@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Session Platform</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+        }
+
+        .session-code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-active {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-host-left {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .welcome-screen, .session-screen {
+            padding: 40px;
+        }
+
+        .welcome-screen h2 {
+            color: #1f2937;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .session-layout {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+        }
+
+        .members-panel {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .members-panel h3 {
+            color: #1f2937;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .member-item {
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .member-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .member-name {
+            flex: 1;
+            font-size: 14px;
+            color: #1f2937;
+        }
+
+        .host-badge {
+            background: #fbbf24;
+            color: #78350f;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .message-author {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .message-content {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #1f2937;
+            line-height: 1.5;
+        }
+
+        .system-message {
+            text-align: center;
+            padding: 8px;
+            background: #fef3c7;
+            border-radius: 6px;
+            color: #92400e;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .typing-indicator {
+            font-size: 12px;
+            color: #6b7280;
+            font-style: italic;
+            padding: 5px 10px;
+        }
+
+        .message-input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .session-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .members-panel {
+                order: 2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Study Session</h1>
+            <div id="sessionInfo" class="hidden">
+                <span class="session-code" id="codeDisplay"></span>
+                <span class="status-badge" id="statusBadge"></span>
+            </div>
+        </div>
+
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="welcome-screen">
+            <h2>Join or Create a Study Session</h2>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="showCreateForm()">Create Session</button>
+                <button class="btn btn-secondary" onclick="showJoinForm()">Join Session</button>
+            </div>
+
+            <div id="errorContainer"></div>
+
+            <!-- Create Session Form -->
+            <div id="createForm" class="hidden">
+                <div class="form-group">
+                    <label for="hostName">Your Name (Host)</label>
+                    <input type="text" id="hostName" placeholder="Enter your name" maxlength="30">
+                </div>
+                <button class="btn btn-primary" onclick="createSession()">Create Session</button>
+            </div>
+
+            <!-- Join Session Form -->
+            <div id="joinForm" class="hidden">
+                <div class="form-group">
+                    <label for="sessionCode">Session Code</label>
+                    <input type="text" id="sessionCode" placeholder="Enter session code" maxlength="6" 
+                           style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label for="userName">Your Name</label>
+                    <input type="text" id="userName" placeholder="Enter your name" maxlength="30">
+                </div>
+                <button class="btn btn-primary" onclick="joinSession()">Join Session</button>
+            </div>
+        </div>
+
+        <!-- Session Screen -->
+        <div id="sessionScreen" class="session-screen hidden">
+            <div class="session-layout">
+                <!-- Members Panel -->
+                <div class="members-panel">
+                    <h3>Members (<span id="memberCount">0</span>)</h3>
+                    <div id="membersList"></div>
+                </div>
+
+                <!-- Chat Area -->
+                <div>
+                    <div class="chat-container">
+                        <div class="messages" id="messages"></div>
+                        <div class="typing-indicator" id="typingIndicator"></div>
+                        <div class="message-input-container">
+                            <input type="text" 
+                                   class="message-input" 
+                                   id="messageInput" 
+                                   placeholder="Type a message..." 
+                                   maxlength="500">
+                            <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                        </div>
+                    </div>
+
+                    <!-- Controls (Host Only) -->
+                    <div id="hostControls" class="controls hidden">
+                        <button class="btn btn-danger" onclick="endSession()">End Session</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let socket = null;
+        let currentUser = null;
+        let typingTimeout = null;
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+            setTimeout(() => {
+                errorContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function showCreateForm() {
+            document.getElementById('createForm').classList.remove('hidden');
+            document.getElementById('joinForm').classList.add('hidden');
+        }
+
+        function showJoinForm() {
+            document.getElementById('joinForm').classList.remove('hidden');
+            document.getElementById('createForm').classList.add('hidden');
+        }
+
+        async function createSession() {
+            const hostName = document.getElementById('hostName').value.trim();
+            
+            if (!hostName) {
+                showError('Please enter your name');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/sessions/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hostName })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create session');
+                }
+
+                currentUser = {
+                    userId: data.userId,
+                    username: hostName,
+                    sessionCode: data.sessionCode,
+                    token: data.token,
+                    isHost: data.isHost
+                };
+
+                connectToSession();
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function joinSession() {
+            const sessionCode = document.getElementById('sessionCode').value.trim().toUpperCase();
+            const userName = document.getElementById('userName').value.trim();
+
+            if (!sessionCode || !userName) {
+                showError('Please enter session code and your name');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/sessions/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionCode, username: userName })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to join session');
+                }
+
+                currentUser = {
+                    userId: data.userId,
+                    username: userName,
+                    sessionCode: data.sessionCode,
+                    token: data.token,
+                    isHost: data.isHost
+                };
+
+                connectToSession();
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function connectToSession() {
+            socket = io(API_URL, {
+                auth: {
+                    token: currentUser.token
+                }
+            });
+
+            socket.on('connect', () => {
+                console.log('Connected to session');
+                document.getElementById('welcomeScreen').classList.add('hidden');
+                document.getElementById('sessionScreen').classList.remove('hidden');
+                document.getElementById('sessionInfo').classList.remove('hidden');
+                document.getElementById('codeDisplay').textContent = currentUser.sessionCode;
+
+                if (currentUser.isHost) {
+                    document.getElementById('hostControls').classList.remove('hidden');
+                }
+            });
+
+            socket.on('session:state', (data) => {
+                updateMembers(data.members);
+                updateStatus(data.status);
+                data.messages.forEach(msg => displayMessage(msg));
+            });
+
+            socket.on('member:joined', (data) => {
+                addSystemMessage(`${data.username} joined the session`);
+                addMember(data);
+            });
+
+            socket.on('member:left', (data) => {
+                addSystemMessage(`${data.username} left the session`);
+                removeMember(data.userId);
+            });
+
+            socket.on('host:left', (data) => {
+                addSystemMessage(data.message);
+                updateStatus('host-left');
+            });
+
+            socket.on('session:ended', (data) => {
+                addSystemMessage(data.message);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            });
+
+            socket.on('chat:message', (data) => {
+                displayMessage(data);
+            });
+
+            socket.on('typing:start', (data) => {
+                showTypingIndicator(data.username);
+            });
+
+            socket.on('typing:stop', () => {
+                hideTypingIndicator();
+            });
+
+            socket.on('connect_error', (error) => {
+                showError('Connection error: ' + error.message);
+            });
+
+            // Message input handlers
+            const messageInput = document.getElementById('messageInput');
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                } else {
+                    handleTyping();
+                }
+            });
+        }
+
+        function updateMembers(members) {
+            const membersList = document.getElementById('membersList');
+            const memberCount = document.getElementById('memberCount');
+            
+            memberCount.textContent = members.length;
+            membersList.innerHTML = '';
+
+            members.forEach(member => {
+                addMember(member);
+            });
+        }
+
+        function addMember(member) {
+            const membersList = document.getElementById('membersList');
+            const memberCount = document.getElementById('memberCount');
+            
+            if (!document.getElementById(`member-${member.userId}`)) {
+                const memberItem = document.createElement('div');
+                memberItem.className = 'member-item';
+                memberItem.id = `member-${member.userId}`;
+                memberItem.innerHTML = `
+                    <div class="member-avatar">${member.username[0].toUpperCase()}</div>
+                    <div class="member-name">${member.username}</div>
+                    ${member.isHost ? '<span class="host-badge">HOST</span>' : ''}
+                `;
+                membersList.appendChild(memberItem);
+                memberCount.textContent = membersList.children.length;
+            }
+        }
+
+        function removeMember(userId) {
+            const memberItem = document.getElementById(`member-${userId}`);
+            if (memberItem) {
+                memberItem.remove();
+                const memberCount = document.getElementById('memberCount');
+                memberCount.textContent = document.getElementById('membersList').children.length;
+            }
+        }
+
+        function updateStatus(status) {
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.className = 'status-badge';
+            
+            if (status === 'active') {
+                statusBadge.classList.add('status-active');
+                statusBadge.textContent = 'ACTIVE';
+            } else if (status === 'host-left') {
+                statusBadge.classList.add('status-host-left');
+                statusBadge.textContent = 'HOST LEFT';
+            }
+        }
+
+        function displayMessage(msg) {
+            const messages = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const time = new Date(msg.timestamp).toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="message-author">${msg.username}</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-content">${escapeHtml(msg.message)}</div>
+            `;
+
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const messages = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'system-message';
+            messageDiv.textContent = text;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (message && socket) {
+                socket.emit('chat:message', { message });
+                input.value = '';
+                socket.emit('typing:stop');
+            }
+        }
+
+        function handleTyping() {
+            if (socket) {
+                socket.emit('typing:start');
+                
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket.emit('typing:stop');
+                }, 1000);
+            }
+        }
+
+        function showTypingIndicator(username) {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.textContent = `${username} is typing...`;
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.textContent = '';
+        }
+
+        function endSession() {
+            if (confirm('Are you sure you want to end this session? All members will be disconnected.')) {
+                socket.emit('session:end');
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+    </script>
+</body>
+</html>
